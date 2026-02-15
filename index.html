@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SawitPro - Manajemen RAM & PKS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .nav-btn.active { background-color: #0f172a; color: white; border-radius: 0.75rem; }
+        @media print { .no-print { display: none; } }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div class="flex flex-col md:flex-row min-h-screen">
+        <!-- Sidebar -->
+        <aside class="w-full md:w-64 bg-white border-r border-slate-200 p-6 no-print">
+            <div class="flex items-center gap-2 mb-10">
+                <div class="p-2 bg-emerald-600 rounded-lg">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                </div>
+                <span class="text-xl font-bold tracking-tight text-slate-900">SawitPro</span>
+            </div>
+            
+            <nav class="space-y-1 text-sm font-semibold text-slate-600">
+                <button onclick="showTab('dashboard')" class="nav-btn active w-full text-left p-3 flex items-center gap-3 transition">📊 Dashboard</button>
+                <div class="py-2 text-[10px] uppercase text-slate-400 tracking-wider font-bold px-3">Operasional</div>
+                <button onclick="showTab('pembelian')" class="nav-btn w-full text-left p-3 flex items-center gap-3 transition">📥 Pembelian (RAM)</button>
+                <button onclick="showTab('penjualan')" class="nav-btn w-full text-left p-3 flex items-center gap-3 transition">📤 Penjualan (PKS)</button>
+                <button onclick="showTab('susut')" class="nav-btn w-full text-left p-3 flex items-center gap-3 transition">📉 Analisis Susut</button>
+                
+                <div class="py-2 text-[10px] uppercase text-slate-400 tracking-wider font-bold px-3">Keuangan</div>
+                <button onclick="showTab('biaya')" class="nav-btn w-full text-left p-3 flex items-center gap-3 transition">💸 Biaya Ops</button>
+                <button onclick="showTab('modal')" class="nav-btn w-full text-left p-3 flex items-center gap-3 transition">💰 Modal & Prive</button>
+                <button onclick="showTab('neraca')" class="nav-btn w-full text-left p-3 flex items-center gap-3 transition">🏛️ Neraca</button>
+                <button onclick="showTab('pajak')" class="nav-btn w-full text-left p-3 flex items-center gap-3 transition">📜 Pajak PPh</button>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-4 md:p-8">
+            
+            <!-- Dashboard -->
+            <div id="dashboard" class="tab-content active">
+                <h1 class="text-2xl font-bold mb-6">Ringkasan Operasional</h1>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <p class="text-slate-500 text-xs font-bold uppercase mb-1">Total Beli (RAM)</p>
+                        <p id="kpi-ton-beli" class="text-xl font-bold">0 kg</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <p class="text-slate-500 text-xs font-bold uppercase mb-1">Total Jual (PKS)</p>
+                        <p id="kpi-ton-jual" class="text-xl font-bold">0 kg</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <p class="text-slate-500 text-xs font-bold uppercase mb-1">Susut Tonase</p>
+                        <p id="kpi-susut-val" class="text-xl font-bold text-rose-600">0 kg</p>
+                    </div>
+                    <div class="bg-emerald-600 text-white p-5 rounded-2xl shadow-sm">
+                        <p class="text-emerald-100 text-xs font-bold uppercase mb-1">Laba Bersih Est.</p>
+                        <p id="kpi-laba" class="text-xl font-bold">Rp 0</p>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-96">
+                    <h2 class="font-bold mb-4">Perbandingan Tonase Bulanan</h2>
+                    <canvas id="tonChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Pembelian RAM -->
+            <div id="pembelian" class="tab-content">
+                <div class="flex justify-between items-center mb-6">
+                    <h1 class="text-2xl font-bold">Data Pembelian (RAM)</h1>
+                    <button onclick="openModal('modal-beli')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-bold transition">+ Input RAM</button>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200 overflow-x-auto shadow-sm">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 border-b">
+                            <tr>
+                                <th class="p-4">Tanggal</th>
+                                <th class="p-4">No Tiket</th>
+                                <th class="p-4">Pengepul</th>
+                                <th class="p-4 text-right">Netto (kg)</th>
+                                <th class="p-4 text-right">Harga/kg</th>
+                                <th class="p-4 text-right">Total</th>
+                                <th class="p-4 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="beli-body" class="divide-y"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Penjualan PKS -->
+            <div id="penjualan" class="tab-content">
+                <div class="flex justify-between items-center mb-6">
+                    <h1 class="text-2xl font-bold">Data Penjualan (PKS)</h1>
+                    <button onclick="openModal('modal-jual')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-bold transition">+ Input PKS</button>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200 overflow-x-auto shadow-sm">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 border-b">
+                            <tr>
+                                <th class="p-4">Tanggal</th>
+                                <th class="p-4">No Tiket PKS</th>
+                                <th class="p-4">Ref Tiket RAM</th>
+                                <th class="p-4 text-right">Netto (kg)</th>
+                                <th class="p-4 text-right">Harga/kg</th>
+                                <th class="p-4 text-right">Total</th>
+                                <th class="p-4 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="jual-body" class="divide-y"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Analisis Susut -->
+            <div id="susut" class="tab-content">
+                <div class="flex justify-between items-center mb-6">
+                    <h1 class="text-2xl font-bold">Analisis Penyusutan</h1>
+                    <button onclick="exportPDF('susut-area', 'Laporan_Susut')" class="bg-slate-800 text-white px-4 py-2 rounded-xl font-bold transition">🖨️ Cetak</button>
+                </div>
+                <div id="susut-area" class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                    <table class="w-full text-left text-sm">
+                        <thead>
+                            <tr class="border-b">
+                                <th class="pb-4">Link Transaksi</th>
+                                <th class="pb-4 text-right">RAM (kg)</th>
+                                <th class="pb-4 text-right">PKS (kg)</th>
+                                <th class="pb-4 text-right">Susut (kg)</th>
+                                <th class="pb-4 text-right">Persentase</th>
+                                <th class="pb-4 text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="susut-body" class="divide-y"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Biaya Operasional (With Filter) -->
+            <div id="biaya" class="tab-content">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <h1 class="text-2xl font-bold">Biaya Operasional</h1>
+                    <div class="flex gap-2 w-full md:w-auto">
+                        <select id="filter-biaya" onchange="renderBiayaTable()" class="border p-2 rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-rose-500">
+                            <option value="Semua">Semua Kategori</option>
+                            <option value="Gaji">Gaji</option>
+                            <option value="Pajak">Pajak</option>
+                            <option value="Pulsa, Listrik, Air">Pulsa, Listrik, Air</option>
+                            <option value="Service">Service</option>
+                            <option value="BPJS">BPJS</option>
+                            <option value="BBM">BBM (Solar/Bensin)</option>
+                            <option value="Biaya SPTI">Biaya SPTI</option>
+                            <option value="Makan/Minum">Makan/Minum</option>
+                            <option value="ATK">ATK</option>
+                            <option value="Lembur">Lembur</option>
+                            <option value="Lainnya">Lainnya</option>
+                        </select>
+                        <button onclick="openModal('modal-biaya')" class="bg-rose-600 text-white px-4 py-2 rounded-xl font-bold transition whitespace-nowrap">+ Tambah Biaya</button>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="p-4 bg-rose-50 border-b flex justify-between items-center">
+                        <span class="text-xs font-bold text-rose-700 uppercase">Subtotal Terfilter:</span>
+                        <span id="subtotal-biaya" class="text-lg font-black text-rose-700">Rp 0</span>
+                    </div>
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 border-b">
+                            <tr>
+                                <th class="p-4">Tanggal</th>
+                                <th class="p-4">Kategori</th>
+                                <th class="p-4 text-right">Nominal</th>
+                                <th class="p-4 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="biaya-body" class="divide-y"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Modal & Perubahan Modal -->
+            <div id="modal" class="tab-content">
+                <div class="flex justify-between items-center mb-6">
+                    <h1 class="text-2xl font-bold">Perubahan Modal</h1>
+                    <button onclick="openModal('modal-investasi')" class="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold transition">+ Modal / Prive</button>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                        <h2 class="font-bold text-lg mb-4">Laporan Ekuitas</h2>
+                        <div class="space-y-3">
+                            <div class="flex justify-between p-2 border-b"><span>Modal Awal</span><span id="rpt-modal-awal" class="font-semibold">Rp 0</span></div>
+                            <div class="flex justify-between p-2 border-b text-emerald-600"><span>Tambahan Modal</span><span id="rpt-modal-tambah" class="font-semibold">+ Rp 0</span></div>
+                            <div class="flex justify-between p-2 border-b text-emerald-600"><span>Laba Bersih</span><span id="rpt-modal-laba" class="font-semibold">+ Rp 0</span></div>
+                            <div class="flex justify-between p-2 border-b text-rose-600"><span>Prive (Penarikan)</span><span id="rpt-modal-prive" class="font-semibold">- Rp 0</span></div>
+                            <div class="flex justify-between p-4 bg-slate-50 rounded-xl font-bold text-lg mt-4"><span>Modal Akhir</span><span id="rpt-modal-akhir" class="text-indigo-600">Rp 0</span></div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm h-fit">
+                        <h2 class="font-bold mb-3 text-sm">Riwayat Modal</h2>
+                        <div id="modal-history" class="space-y-2 max-h-96 overflow-y-auto"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Neraca -->
+            <div id="neraca" class="tab-content">
+                <div class="flex justify-between items-center mb-6">
+                    <h1 class="text-2xl font-bold">Laporan Neraca</h1>
+                    <button onclick="exportPDF('neraca-area', 'Laporan_Neraca')" class="bg-slate-800 text-white px-4 py-2 rounded-xl font-bold transition">🖨️ Cetak</button>
+                </div>
+                <div id="neraca-area" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+                        <h2 class="text-emerald-700 font-bold text-xl mb-6 border-b pb-2 uppercase tracking-widest">Aktiva</h2>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center"><span class="text-slate-600">Kas & Bank</span><span id="neraca-kas" class="font-bold">Rp 0</span></div>
+                            <div class="pt-10 flex justify-between items-center border-t font-black text-xl"><span>TOTAL AKTIVA</span><span id="neraca-total-aktiva">Rp 0</span></div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+                        <h2 class="text-indigo-700 font-bold text-xl mb-6 border-b pb-2 uppercase tracking-widest">Passiva</h2>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center text-xs text-slate-400 font-bold"><span>KEWAJIBAN</span></div>
+                            <div class="flex justify-between items-center"><span class="text-slate-600">Hutang Pajak PPh</span><span id="neraca-hutang-pajak" class="font-bold text-rose-600">Rp 0</span></div>
+                            <div class="flex justify-between items-center text-xs text-slate-400 font-bold mt-4"><span>EKUITAS</span></div>
+                            <div class="flex justify-between items-center"><span class="text-slate-600">Modal Akhir</span><span id="neraca-modal" class="font-bold text-indigo-600">Rp 0</span></div>
+                            <div class="pt-10 flex justify-between items-center border-t font-black text-xl"><span>TOTAL PASSIVA</span><span id="neraca-total-passiva">Rp 0</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pajak -->
+            <div id="pajak" class="tab-content">
+                <h1 class="text-2xl font-bold mb-6">Rekap Pajak PPh Final (0.5%)</h1>
+                <div class="bg-white p-12 rounded-2xl border border-slate-200 shadow-sm text-center">
+                    <p class="text-slate-500 font-semibold mb-2 uppercase text-xs tracking-widest">Total Pajak Terutang</p>
+                    <p id="tax-val" class="text-5xl font-black text-rose-600">Rp 0</p>
+                    <p class="mt-6 text-sm text-slate-400 max-w-md mx-auto italic">Pajak ini dihitung otomatis dari 0.5% total bruto penjualan ke PKS (PP 55/2022).</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <!-- Modal Beli -->
+    <div id="modal-beli" class="fixed inset-0 bg-slate-900/50 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-3xl p-8 shadow-2xl">
+            <h2 class="text-xl font-bold mb-6">Timbangan RAM</h2>
+            <form id="form-beli" class="space-y-4">
+                <input type="date" id="b-tgl" required class="w-full border p-3 rounded-xl outline-none">
+                <input type="text" id="b-id" placeholder="No Tiket RAM" required class="w-full border p-3 rounded-xl outline-none">
+                <input type="text" id="b-supp" placeholder="Nama Supplier" required class="w-full border p-3 rounded-xl outline-none">
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="number" id="b-netto" placeholder="Netto (kg)" required class="border p-3 rounded-xl outline-none">
+                    <input type="number" id="b-harga" placeholder="Harga/kg" required class="border p-3 rounded-xl outline-none">
+                </div>
+                <div class="flex gap-2">
+                    <button type="button" onclick="closeModal('modal-beli')" class="flex-1 bg-slate-100 p-3 rounded-xl">Batal</button>
+                    <button type="submit" class="flex-1 bg-emerald-600 text-white p-3 rounded-xl font-bold">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Jual -->
+    <div id="modal-jual" class="fixed inset-0 bg-slate-900/50 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-3xl p-8 shadow-2xl">
+            <h2 class="text-xl font-bold mb-6">Timbangan PKS</h2>
+            <form id="form-jual" class="space-y-4">
+                <input type="date" id="j-tgl" required class="w-full border p-3 rounded-xl outline-none">
+                <input type="text" id="j-id" placeholder="No Tiket PKS" required class="w-full border p-3 rounded-xl outline-none">
+                <input type="text" id="j-ref" placeholder="Ref No Tiket RAM" required class="w-full border-orange-200 border-2 bg-orange-50 p-3 rounded-xl outline-none">
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="number" id="j-netto" placeholder="Netto PKS (kg)" required class="border p-3 rounded-xl outline-none">
+                    <input type="number" id="j-harga" placeholder="Harga/kg PKS" required class="border p-3 rounded-xl outline-none">
+                </div>
+                <div class="flex gap-2">
+                    <button type="button" onclick="closeModal('modal-jual')" class="flex-1 bg-slate-100 p-3 rounded-xl">Batal</button>
+                    <button type="submit" class="flex-1 bg-blue-600 text-white p-3 rounded-xl font-bold">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Biaya (Updated with New Categories) -->
+    <div id="modal-biaya" class="fixed inset-0 bg-slate-900/50 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-8 shadow-2xl border-t-8 border-rose-600">
+            <h2 class="text-xl font-bold mb-6">Input Biaya Baru</h2>
+            <form id="form-biaya" class="space-y-4">
+                <input type="date" id="c-tgl" required class="w-full border p-3 rounded-xl outline-none">
+                <select id="c-kat" class="w-full border p-3 rounded-xl outline-none">
+                    <option>Gaji</option>
+                    <option>Pajak</option>
+                    <option>Pulsa, Listrik, Air</option>
+                    <option>Service</option>
+                    <option>BPJS</option>
+                    <option>BBM</option>
+                    <option>Biaya SPTI</option>
+                    <option>Makan/Minum</option>
+                    <option>ATK</option>
+                    <option>Lembur</option>
+                    <option>Lainnya</option>
+                </select>
+                <input type="number" id="c-nom" placeholder="Nominal Rp" required class="w-full border p-3 rounded-xl outline-none">
+                <div class="flex gap-2">
+                    <button type="button" onclick="closeModal('modal-biaya')" class="flex-1 bg-slate-100 p-3 rounded-xl">Batal</button>
+                    <button type="submit" class="flex-1 bg-rose-600 text-white p-3 rounded-xl font-bold">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Investasi -->
+    <div id="modal-investasi" class="fixed inset-0 bg-slate-900/50 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-8 shadow-2xl">
+            <h2 class="text-xl font-bold mb-6">Setoran Modal / Prive</h2>
+            <form id="form-investasi" class="space-y-4">
+                <input type="date" id="i-tgl" required class="w-full border p-3 rounded-xl outline-none">
+                <select id="i-tipe" class="w-full border p-3 rounded-xl outline-none">
+                    <option value="Modal">Setoran Modal (+)</option>
+                    <option value="Prive">Prive / Tarik Tunai (-)</option>
+                </select>
+                <input type="number" id="i-nom" placeholder="Nominal Rp" required class="w-full border p-3 rounded-xl outline-none">
+                <div class="flex gap-2">
+                    <button type="button" onclick="closeModal('modal-investasi')" class="flex-1 bg-slate-100 p-3 rounded-xl">Batal</button>
+                    <button type="submit" class="flex-1 bg-indigo-600 text-white p-3 rounded-xl font-bold">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let dataBeli = JSON.parse(localStorage.getItem('sawit_beli_db')) || [];
+        let dataJual = JSON.parse(localStorage.getItem('sawit_jual_db')) || [];
+        let dataBiaya = JSON.parse(localStorage.getItem('sawit_biaya_db')) || [];
+        let dataModal = JSON.parse(localStorage.getItem('sawit_modal_db')) || [];
+        let currentChart = null;
+
+        // Utilities
+        const formatIDR = (n) => "Rp " + Math.round(n).toLocaleString('id-ID');
+        const formatKg = (n) => Math.round(n).toLocaleString('id-ID') + " kg";
+
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.textContent.toLowerCase().includes(tabId.replace('-', ' '))) btn.classList.add('active');
+            });
+            document.getElementById(tabId).classList.add('active');
+            renderAll();
+        }
+
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        // Event Listeners
+        document.getElementById('form-beli').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const netto = parseFloat(document.getElementById('b-netto').value);
+            const harga = parseFloat(document.getElementById('b-harga').value);
+            dataBeli.push({
+                tanggal: document.getElementById('b-tgl').value,
+                id: document.getElementById('b-id').value,
+                supp: document.getElementById('b-supp').value,
+                netto: netto, harga: harga, total: netto * harga
+            });
+            saveAndRender('modal-beli', e.target);
+        });
+
+        document.getElementById('form-jual').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const netto = parseFloat(document.getElementById('j-netto').value);
+            const harga = parseFloat(document.getElementById('j-harga').value);
+            dataJual.push({
+                tanggal: document.getElementById('j-tgl').value,
+                id: document.getElementById('j-id').value,
+                ref: document.getElementById('j-ref').value,
+                netto: netto, harga: harga, total: netto * harga
+            });
+            saveAndRender('modal-jual', e.target);
+        });
+
+        document.getElementById('form-biaya').addEventListener('submit', function(e) {
+            e.preventDefault();
+            dataBiaya.push({
+                tanggal: document.getElementById('c-tgl').value,
+                kategori: document.getElementById('c-kat').value,
+                nominal: parseFloat(document.getElementById('c-nom').value)
+            });
+            saveAndRender('modal-biaya', e.target);
+        });
+
+        document.getElementById('form-investasi').addEventListener('submit', function(e) {
+            e.preventDefault();
+            dataModal.push({
+                tanggal: document.getElementById('i-tgl').value,
+                tipe: document.getElementById('i-tipe').value,
+                nominal: parseFloat(document.getElementById('i-nom').value)
+            });
+            saveAndRender('modal-investasi', e.target);
+        });
+
+        function saveAndRender(mId, form) {
+            localStorage.setItem('sawit_beli_db', JSON.stringify(dataBeli));
+            localStorage.setItem('sawit_jual_db', JSON.stringify(dataJual));
+            localStorage.setItem('sawit_biaya_db', JSON.stringify(dataBiaya));
+            localStorage.setItem('sawit_modal_db', JSON.stringify(dataModal));
+            closeModal(mId);
+            form.reset();
+            renderAll();
+        }
+
+        function deleteItem(type, index) {
+            if(!confirm('Hapus item ini?')) return;
+            if(type === 'beli') dataBeli.splice(index, 1);
+            if(type === 'jual') dataJual.splice(index, 1);
+            if(type === 'biaya') dataBiaya.splice(index, 1);
+            if(type === 'modal') dataModal.splice(index, 1);
+            saveAndRender('none', {reset:()=>{}});
+        }
+
+        // Filter Logic for Biaya
+        function renderBiayaTable() {
+            const filterVal = document.getElementById('filter-biaya').value;
+            let subtotal = 0;
+            const filteredData = dataBiaya.filter(d => filterVal === 'Semua' || d.kategori === filterVal);
+            
+            document.getElementById('biaya-body').innerHTML = filteredData.map((d, i) => {
+                subtotal += d.nominal;
+                return `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-4">${d.tanggal}</td>
+                        <td class="p-4 font-semibold">${d.kategori}</td>
+                        <td class="p-4 text-right text-rose-600 font-bold">${formatIDR(d.nominal)}</td>
+                        <td class="p-4 text-center"><button onclick="deleteItem('biaya', ${i})" class="text-slate-300 hover:text-rose-500 font-bold">Hapus</button></td>
+                    </tr>
+                `;
+            }).join('');
+            
+            document.getElementById('subtotal-biaya').innerText = formatIDR(subtotal);
+        }
+
+        function renderAll() {
+            // RAM
+            document.getElementById('beli-body').innerHTML = dataBeli.map((d, i) => `
+                <tr class="hover:bg-slate-50">
+                    <td class="p-4 text-xs">${d.tanggal}</td>
+                    <td class="p-4 font-bold text-xs uppercase">${d.id}</td>
+                    <td class="p-4 text-xs uppercase">${d.supp}</td>
+                    <td class="p-4 text-right">${formatKg(d.netto)}</td>
+                    <td class="p-4 text-right">${d.harga}</td>
+                    <td class="p-4 text-right font-bold text-emerald-600">${formatIDR(d.total)}</td>
+                    <td class="p-4 text-center"><button onclick="deleteItem('beli', ${i})" class="text-rose-500">X</button></td>
+                </tr>
+            `).join('');
+
+            // PKS
+            document.getElementById('jual-body').innerHTML = dataJual.map((d, i) => `
+                <tr class="hover:bg-slate-50">
+                    <td class="p-4 text-xs">${d.tanggal}</td>
+                    <td class="p-4 font-bold text-xs uppercase">${d.id}</td>
+                    <td class="p-4 text-[10px] bg-orange-50 px-2 rounded uppercase">${d.ref}</td>
+                    <td class="p-4 text-right">${formatKg(d.netto)}</td>
+                    <td class="p-4 text-right">${d.harga}</td>
+                    <td class="p-4 text-right font-bold text-blue-600">${formatIDR(d.total)}</td>
+                    <td class="p-4 text-center"><button onclick="deleteItem('jual', ${i})" class="text-rose-500">X</button></td>
+                </tr>
+            `).join('');
+
+            // Susut
+            document.getElementById('susut-body').innerHTML = dataJual.map(j => {
+                const b = dataBeli.find(x => x.id === j.ref);
+                if(!b) return `<tr><td colspan="6" class="p-4 text-slate-300 italic">Data RAM untuk ref ${j.ref} tidak ditemukan</td></tr>`;
+                const diff = b.netto - j.netto;
+                const pct = (diff/b.netto)*100;
+                return `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-4 font-bold text-xs">${b.id} → ${j.id}</td>
+                        <td class="p-4 text-right">${formatKg(b.netto)}</td>
+                        <td class="p-4 text-right">${formatKg(j.netto)}</td>
+                        <td class="p-4 text-right text-rose-600 font-bold">${formatKg(diff)}</td>
+                        <td class="p-4 text-right font-bold ${pct > 3 ? 'text-rose-600' : 'text-emerald-600'}">${pct.toFixed(2)}%</td>
+                        <td class="p-4 text-center text-xs font-bold uppercase">${pct > 3 ? '⚠️ Tinggi' : '✅ Aman'}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            // Modal History
+            document.getElementById('modal-history').innerHTML = dataModal.map((m, i) => `
+                <div class="p-3 bg-slate-50 rounded-xl flex justify-between items-center text-xs">
+                    <div><span class="font-black ${m.tipe === 'Modal' ? 'text-indigo-600' : 'text-rose-600'} uppercase">${m.tipe}</span><p class="text-slate-400">${m.tanggal}</p></div>
+                    <div class="text-right font-bold">${formatIDR(m.nominal)}<br><button onclick="deleteItem('modal', ${i})" class="text-slate-300 hover:text-rose-500">Hapus</button></div>
+                </div>
+            `).join('');
+
+            renderBiayaTable();
+            updateDashboard();
+        }
+
+        function updateDashboard() {
+            const sumTonBeli = dataBeli.reduce((a, b) => a + b.netto, 0);
+            const sumTonJual = dataJual.reduce((a, b) => a + b.netto, 0);
+            const valBeli = dataBeli.reduce((a, b) => a + b.total, 0);
+            const valJual = dataJual.reduce((a, b) => a + b.total, 0);
+            const valBiaya = dataBiaya.reduce((a, b) => a + b.nominal, 0);
+            const tax = valJual * 0.005;
+            
+            const totalSetoran = dataModal.filter(m => m.tipe === 'Modal').reduce((a, b) => a + b.nominal, 0);
+            const totalPrive = dataModal.filter(m => m.tipe === 'Prive').reduce((a, b) => a + b.nominal, 0);
+            const laba = valJual - valBeli - valBiaya - tax;
+            const modalAkhir = totalSetoran + laba - totalPrive;
+            const kas = (totalSetoran + valJual) - (valBeli + valBiaya + totalPrive);
+
+            // KPI
+            document.getElementById('kpi-ton-beli').innerText = formatKg(sumTonBeli);
+            document.getElementById('kpi-ton-jual').innerText = formatKg(sumTonJual);
+            document.getElementById('kpi-susut-val').innerText = formatKg(sumTonBeli - sumTonJual);
+            document.getElementById('kpi-laba').innerText = formatIDR(laba);
+            
+            // Financial Reports
+            document.getElementById('rpt-modal-tambah').innerText = "+ " + formatIDR(totalSetoran);
+            document.getElementById('rpt-modal-laba').innerText = "+ " + formatIDR(laba);
+            document.getElementById('rpt-modal-prive').innerText = "- " + formatIDR(totalPrive);
+            document.getElementById('rpt-modal-akhir').innerText = formatIDR(modalAkhir);
+            
+            document.getElementById('neraca-kas').innerText = formatIDR(kas);
+            document.getElementById('neraca-total-aktiva').innerText = formatIDR(kas);
+            document.getElementById('neraca-hutang-pajak').innerText = formatIDR(tax);
+            document.getElementById('neraca-modal').innerText = formatIDR(modalAkhir);
+            document.getElementById('neraca-total-passiva').innerText = formatIDR(tax + modalAkhir);
+            document.getElementById('tax-val').innerText = formatIDR(tax);
+
+            // Chart
+            const ctx = document.getElementById('tonChart').getContext('2d');
+            if(currentChart) currentChart.destroy();
+            currentChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Beli (RAM)', 'Jual (PKS)'],
+                    datasets: [{
+                        data: [sumTonBeli, sumTonJual],
+                        backgroundColor: ['#10b981', '#3b82f6'],
+                        borderRadius: 12
+                    }]
+                },
+                options: { 
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function exportPDF(id, name) {
+            const el = document.getElementById(id);
+            html2pdf().from(el).set({ margin: 10, filename: name + '.pdf' }).save();
+        }
+
+        window.onload = renderAll;
+    </script>
+</body>
+</html>
+
